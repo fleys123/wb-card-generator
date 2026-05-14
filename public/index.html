@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Генератор карточки товара — WB & Ozon</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3e;
+      --accent: #7c6af7;
+      --accent2: #5b9bd5;
+      --text: #e8eaf0;
+      --muted: #6b7080;
+      --green: #3ecf8e;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 40px 16px;
+    }
+
+    .container { max-width: 720px; margin: 0 auto; }
+
+    header { text-align: center; margin-bottom: 48px; }
+    header .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(124,106,247,0.15); border: 1px solid rgba(124,106,247,0.3);
+      color: var(--accent); border-radius: 20px;
+      padding: 4px 12px; font-size: 13px; margin-bottom: 16px;
+    }
+    header h1 { font-size: clamp(24px, 5vw, 38px); font-weight: 700; letter-spacing: -0.5px; }
+    header h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    header p { color: var(--muted); margin-top: 10px; font-size: 15px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    input, select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    select option { background: var(--surface); }
+
+    .form-row { display: grid; grid-template-columns: 1fr 200px; gap: 16px; margin-bottom: 20px; }
+    @media (max-width: 540px) { .form-row { grid-template-columns: 1fr; } }
+
+    button.generate {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    button.generate:hover { opacity: 0.88; }
+    button.generate:active { transform: scale(0.99); }
+    button.generate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .spinner {
+      display: none;
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #results { display: none; }
+
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .result-card .label {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--muted); margin-bottom: 10px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .result-card .label .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent);
+    }
+    .result-card .content { font-size: 15px; line-height: 1.6; color: var(--text); }
+
+    .copy-btn {
+      position: absolute; top: 16px; right: 16px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+    .copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+    .keywords { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+    .keyword-tag {
+      background: rgba(124,106,247,0.12);
+      border: 1px solid rgba(124,106,247,0.25);
+      color: var(--accent);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 13px;
+    }
+
+    .chars-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    @media (max-width: 480px) { .chars-grid { grid-template-columns: 1fr; } }
+    .char-item {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+    .char-item .char-key { font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+    .char-item .char-val { font-size: 14px; font-weight: 500; }
+
+    .char-len { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+    .error-msg {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #f87171;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 14px;
+      margin-top: 16px;
+      display: none;
+    }
+
+    footer { text-align: center; margin-top: 48px; color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="badge">✦ Gemini AI</div>
+    <h1>AI Генератор <span>карточки товара</span></h1>
+    <p>Заголовок, описание и ключевые слова для Wildberries и Ozon — за секунды</p>
+  </header>
+
+  <div class="card">
+    <div class="form-row">
+      <div>
+        <label>Название товара</label>
+        <input id="productName" type="text" placeholder="Например: Кроссовки Nike Air Max 90" />
+      </div>
+      <div>
+        <label>Категория</label>
+        <select id="category">
+          <option value="">Не выбрано</option>
+          <option value="Обувь">Обувь</option>
+          <option value="Одежда">Одежда</option>
+          <option value="Электроника">Электроника</option>
+          <option value="Спорт и отдых">Спорт и отдых</option>
+          <option value="Красота и уход">Красота и уход</option>
+          <option value="Дом и интерьер">Дом и интерьер</option>
+          <option value="Детские товары">Детские товары</option>
+          <option value="Продукты питания">Продукты питания</option>
+          <option value="Аксессуары">Аксессуары</option>
+        </select>
+      </div>
+    </div>
+    <button class="generate" id="generateBtn" onclick="generate()">
+      <span id="btnText">Сгенерировать карточку</span>
+      <div class="spinner" id="spinner"></div>
+    </button>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <div id="results">
+    <div class="result-card">
+      <div class="label"><span class="dot"></span>Заголовок</div>
+      <div class="content" id="resTitle"></div>
+      <div class="char-len" id="titleLen"></div>
+      <button class="copy-btn" onclick="copy('resTitle', this)">Копировать</button>
+    </div>
+
+    <div class="result-card">
+      <div class="label"><span class="dot" style="background:var(--accent2)"></span>Описание</div>
+      <div class="content" id="resDesc"></div>
+      <div class="char-len" id="descLen"></div>
+      <button class="copy-btn" onclick="copy('resDesc', this)">Копировать</button>
+    </div>
+
+    <div class="result-card">
+      <div class="label"><span class="dot" style="background:var(--green)"></span>Ключевые слова</div>
+      <div class="keywords" id="resKeywords"></div>
+      <button class="copy-btn" onclick="copyKeywords(this)">Копировать</button>
+    </div>
+
+    <div class="result-card">
+      <div class="label"><span class="dot" style="background:#f59e0b"></span>Характеристики</div>
+      <div class="chars-grid" id="resChars"></div>
+    </div>
+  </div>
+
+  <footer>Сделано с Claude Code · AI-powered e-commerce tools</footer>
+</div>
+
+<script>
+  let lastKeywords = [];
+
+  async function generate() {
+    const productName = document.getElementById('productName').value.trim();
+    const category = document.getElementById('category').value;
+    const btn = document.getElementById('generateBtn');
+    const spinner = document.getElementById('spinner');
+    const btnText = document.getElementById('btnText');
+    const errorMsg = document.getElementById('errorMsg');
+
+    if (!productName) {
+      document.getElementById('productName').focus();
+      return;
+    }
+
+    btn.disabled = true;
+    btnText.style.display = 'none';
+    spinner.style.display = 'block';
+    errorMsg.style.display = 'none';
+    document.getElementById('results').style.display = 'none';
+
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productName, category })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Ошибка генерации');
+
+      document.getElementById('resTitle').textContent = data.title || '';
+      document.getElementById('titleLen').textContent = `${(data.title || '').length} символов`;
+
+      document.getElementById('resDesc').textContent = data.description || '';
+      document.getElementById('descLen').textContent = `${(data.description || '').length} символов`;
+
+      const kwContainer = document.getElementById('resKeywords');
+      kwContainer.innerHTML = '';
+      lastKeywords = data.keywords || [];
+      lastKeywords.forEach(kw => {
+        const tag = document.createElement('span');
+        tag.className = 'keyword-tag';
+        tag.textContent = kw;
+        kwContainer.appendChild(tag);
+      });
+
+      const charsContainer = document.getElementById('resChars');
+      charsContainer.innerHTML = '';
+      Object.entries(data.characteristics || {}).forEach(([key, val]) => {
+        charsContainer.innerHTML += `<div class="char-item"><div class="char-key">${key}</div><div class="char-val">${val}</div></div>`;
+      });
+
+      document.getElementById('results').style.display = 'block';
+      document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      errorMsg.textContent = err.message;
+      errorMsg.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btnText.style.display = 'block';
+      spinner.style.display = 'none';
+    }
+  }
+
+  function copy(id, btn) {
+    const text = document.getElementById(id).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Скопировано ✓';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Копировать'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  function copyKeywords(btn) {
+    navigator.clipboard.writeText(lastKeywords.join(', ')).then(() => {
+      btn.textContent = 'Скопировано ✓';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Копировать'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  document.getElementById('productName').addEventListener('keydown', e => {
+    if (e.key === 'Enter') generate();
+  });
+</script>
+</body>
+</html>
